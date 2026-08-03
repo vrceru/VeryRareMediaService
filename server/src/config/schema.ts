@@ -5,6 +5,11 @@ const boolFromString = z
   .optional()
   .transform((v) => v === "true" || v === "1");
 
+// optionalUrl still rejects a *present but empty* value (e.g. `NEWZNAB_URL=` in
+// a .env someone copied from .env.example without filling in) since "" isn't a valid URL and
+// isn't undefined either. Treat blank as unset before the URL check runs.
+const optionalUrl = z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional());
+
 export const envSchema = z.object({
   // Server
   PORT: z.coerce.number().int().positive().default(8787),
@@ -31,27 +36,27 @@ export const envSchema = z.object({
   QUEUE_RETRY_BACKOFF_MS: z.coerce.number().int().positive().default(30000),
 
   // qBittorrent
-  QBITTORRENT_URL: z.string().url().optional(),
+  QBITTORRENT_URL: optionalUrl,
   QBITTORRENT_USERNAME: z.string().optional(),
   QBITTORRENT_PASSWORD: z.string().optional(),
 
   // SABnzbd (usenet download client)
-  SABNZBD_URL: z.string().url().optional(),
+  SABNZBD_URL: optionalUrl,
   SABNZBD_API_KEY: z.string().optional(),
 
   // Newznab-compatible indexer (search only — SABnzbd itself has no search API)
-  NEWZNAB_URL: z.string().url().optional(),
+  NEWZNAB_URL: optionalUrl,
   NEWZNAB_API_KEY: z.string().optional(),
 
   // TMDB
   TMDB_API_KEY: z.string().optional(),
 
   // Jellyfin
-  JELLYFIN_URL: z.string().url().optional(),
+  JELLYFIN_URL: optionalUrl,
   JELLYFIN_API_KEY: z.string().optional(),
 
   // Notifications
-  DISCORD_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_WEBHOOK_URL: optionalUrl,
   // Comma-separated list of generic outgoing webhook URLs (future integrations).
   NOTIFICATION_WEBHOOK_URLS: z.string().optional(),
 

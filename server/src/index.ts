@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { loadConfig, describeIntegrations, ConfigError } from "./config/index.js";
 import { initLogger, getLogger } from "./logging/logger.js";
 import { createDb } from "./db/client.js";
