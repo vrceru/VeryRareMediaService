@@ -17,6 +17,9 @@ export interface PipelineState {
   metadataSearchResults?: MetadataSearchResult[];
   metadata?: MediaMetadata;
   destinationPath?: string;
+  /** Destination for every valid media file in the release, not just the primary one — a batch
+   * release (e.g. a full season pack) has one entry per episode. */
+  destinationPaths?: { source: string; destination: string }[];
   organizedItemDir?: string;
 }
 

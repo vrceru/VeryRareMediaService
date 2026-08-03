@@ -33,8 +33,12 @@ function guessMediaType(title: string, primaryFile: string | undefined, parsed: 
 export async function identifyMedia(ctx: PipelineContext): Promise<void> {
   ctx.app.queue.updateStage(ctx.job.id, STAGE, "Identifying media type");
 
-  const mediaType =
-    ctx.job.request.mediaType ?? guessMediaType(ctx.job.title, ctx.state.primaryMediaFile, ctx.state.parsedRelease);
+  const requested = ctx.job.request.mediaType;
+  const guessed = guessMediaType(ctx.job.title, ctx.state.primaryMediaFile, ctx.state.parsedRelease);
+  // TMDB (what the Discord bot's request search uses) has no "anime" category, so anime
+  // requests always arrive tagged "show" — let the heuristic upgrade that once the actual
+  // release is visible. Any other explicit request type (movie/anime/music) stays authoritative.
+  const mediaType = requested === "show" && guessed === "anime" ? "anime" : (requested ?? guessed);
 
   ctx.job.mediaType = mediaType;
   ctx.app.queue.setMediaType(ctx.job.id, mediaType);

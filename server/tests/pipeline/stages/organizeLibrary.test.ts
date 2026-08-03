@@ -69,4 +69,40 @@ describe("organizeLibrary stage", () => {
     await expect(access(destinationPath)).rejects.toThrow();
     expect(ctx.state.organizedItemDir).toBe(existingDir);
   });
+
+  it("moves every file in a batch (season-pack) release, not just the primary one", async () => {
+    const srcDir = join(workDir, "src");
+    await mkdir(srcDir, { recursive: true });
+    const ep1 = join(srcDir, "ep1.mkv");
+    const ep2 = join(srcDir, "ep2.mkv");
+    const ep3 = join(srcDir, "ep3.mkv");
+    await writeFile(ep1, "a");
+    await writeFile(ep2, "bb");
+    await writeFile(ep3, "ccc");
+
+    const dest1 = join(libraryDirs.anime, "Show", "Season 01", "Show - S01E01.mkv");
+    const dest2 = join(libraryDirs.anime, "Show", "Season 01", "Show - S01E02.mkv");
+    const dest3 = join(libraryDirs.anime, "Show", "Season 01", "Show - S01E03.mkv");
+
+    const { app, queue } = createTestApp({ libraryDirs });
+    const job = createRunningJob(queue, { title: "Show" });
+    job.mediaType = "anime";
+
+    const ctx = makeContext(app, job, {
+      primaryMediaFile: ep3,
+      destinationPath: dest3,
+      destinationPaths: [
+        { source: ep1, destination: dest1 },
+        { source: ep2, destination: dest2 },
+        { source: ep3, destination: dest3 },
+      ],
+    });
+    await organizeLibrary(ctx);
+
+    await expect(access(dest1)).resolves.toBeUndefined();
+    await expect(access(dest2)).resolves.toBeUndefined();
+    await expect(access(dest3)).resolves.toBeUndefined();
+    await expect(access(ep1)).rejects.toThrow();
+    expect(ctx.state.organizedItemDir).toBe(dirname(dest3));
+  });
 });

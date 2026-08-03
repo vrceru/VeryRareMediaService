@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   computeDestinationPath,
+  computeDestinationPaths,
   moveToDestination,
   organizeFile,
 } from "../../src/services/organization/organizer.js";
@@ -122,6 +123,82 @@ describe("organizer", () => {
     });
 
     await expect(access(dest)).resolves.toBeUndefined();
+  });
+});
+
+describe("computeDestinationPaths (batch/season-pack releases)", () => {
+  let workDir: string;
+  let libraryDirs: Record<"movie" | "show" | "anime" | "music", string>;
+
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "vrms-organizer-batch-"));
+    libraryDirs = {
+      movie: join(workDir, "library", "movies"),
+      show: join(workDir, "library", "shows"),
+      anime: join(workDir, "library", "anime"),
+      music: join(workDir, "library", "music"),
+    };
+  });
+
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  it("parses a per-file episode number from each filename in an anime season pack", async () => {
+    const dir = join(workDir, "[Judas] Show (Season 1)");
+    await mkdir(dir, { recursive: true });
+    const files = ["[Judas] Show - 01.mkv", "[Judas] Show - 02.mkv", "[Judas] Show - 16.mkv"];
+    for (const f of files) await writeFile(join(dir, f), "fake video");
+
+    const metadata: MediaMetadata = { provider: "anilist", externalId: "1", title: "Show", genres: [] };
+    const results = await computeDestinationPaths({
+      sourceFilePaths: files.map((f) => join(dir, f)),
+      mediaType: "anime",
+      metadata,
+      namingTemplates,
+      libraryDirs,
+    });
+
+    expect(results).toHaveLength(3);
+    expect(results[0]!.destination).toContain(join("Show", "Season 01", "Show - S01E01.mkv"));
+    expect(results[1]!.destination).toContain(join("Show", "Season 01", "Show - S01E02.mkv"));
+    expect(results[2]!.destination).toContain(join("Show", "Season 01", "Show - S01E16.mkv"));
+  });
+
+  it("never assigns two files in the same batch the same destination", async () => {
+    const dir = join(workDir, "src");
+    await mkdir(dir, { recursive: true });
+    // Neither filename carries a parseable episode number, so both would fall back to the same
+    // series-level metadata (no episode token) without the in-batch collision guard.
+    const files = ["episode-a.mkv", "episode-b.mkv"];
+    for (const f of files) await writeFile(join(dir, f), "fake video");
+
+    const metadata: MediaMetadata = { provider: "anilist", externalId: "1", title: "Show", genres: [] };
+    const results = await computeDestinationPaths({
+      sourceFilePaths: files.map((f) => join(dir, f)),
+      mediaType: "anime",
+      metadata,
+      namingTemplates,
+      libraryDirs,
+    });
+
+    expect(results[0]!.destination).not.toBe(results[1]!.destination);
+  });
+
+  it("leaves movie naming untouched by the per-file episode logic", async () => {
+    const source = join(workDir, "Movie.Title.2020.mkv");
+    await writeFile(source, "fake video");
+
+    const metadata: MediaMetadata = { provider: "tmdb-movie", externalId: "1", title: "Movie Title", year: 2020, genres: [] };
+    const results = await computeDestinationPaths({
+      sourceFilePaths: [source],
+      mediaType: "movie",
+      metadata,
+      namingTemplates,
+      libraryDirs,
+    });
+
+    expect(results[0]!.destination).toContain(join("Movie Title (2020)", "Movie Title (2020).mkv"));
   });
 });
 

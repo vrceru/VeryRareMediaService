@@ -68,6 +68,42 @@ describe("identifyMedia stage", () => {
     expect(job.mediaType).toBe("movie");
   });
 
+  it("upgrades an explicit \"show\" request to \"anime\" once the release reveals a fansub prefix", async () => {
+    // The Discord bot's request search is backed by TMDB, which has no "anime" category, so it
+    // always sends "show" for anime titles too. Once the actual selected release is visible
+    // (e.g. after searchProviders/selectRelease), the fansub-group heuristic should still be
+    // allowed to upgrade it.
+    const { app, queue } = createTestApp();
+    const job = createRunningJob(queue, { title: "Akame ga Kill!", mediaType: "show" });
+    const ctx = makeContext(app, job, {
+      parsedRelease: {
+        title: "Akame ga Kill!",
+        releaseGroup: "Judas",
+        groupStyle: "prefix",
+        isProper: false,
+        isRepack: false,
+      },
+    });
+    await identifyMedia(ctx);
+    expect(job.mediaType).toBe("anime");
+  });
+
+  it("does not override an explicit non-\"show\" request even with an anime-style release", async () => {
+    const { app, queue } = createTestApp();
+    const job = createRunningJob(queue, { title: "Some Anime Movie", mediaType: "movie" });
+    const ctx = makeContext(app, job, {
+      parsedRelease: {
+        title: "Some Anime Movie",
+        releaseGroup: "Judas",
+        groupStyle: "prefix",
+        isProper: false,
+        isRepack: false,
+      },
+    });
+    await identifyMedia(ctx);
+    expect(job.mediaType).toBe("movie");
+  });
+
   it("persists the identified media type on the job record", async () => {
     const { app, queue } = createTestApp();
     const job = createRunningJob(queue, { title: "Some Movie" });
