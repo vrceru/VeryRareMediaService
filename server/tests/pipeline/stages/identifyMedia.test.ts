@@ -88,6 +88,25 @@ describe("identifyMedia stage", () => {
     expect(job.mediaType).toBe("anime");
   });
 
+  it("drops a TMDB-sourced metadataId when upgrading to anime, so fetchMetadata falls back to search", async () => {
+    // metadataId on a "show" request is a TMDB ID (that's the bot's only search source) --
+    // meaningless once fetchMetadata looks this job up against AniList instead.
+    const { app, queue } = createTestApp();
+    const job = createRunningJob(queue, { title: "Akame ga Kill!", mediaType: "show", metadataId: "61223" });
+    const ctx = makeContext(app, job, {
+      parsedRelease: {
+        title: "Akame ga Kill!",
+        releaseGroup: "Judas",
+        groupStyle: "prefix",
+        isProper: false,
+        isRepack: false,
+      },
+    });
+    await identifyMedia(ctx);
+    expect(job.mediaType).toBe("anime");
+    expect(job.request.metadataId).toBeUndefined();
+  });
+
   it("does not override an explicit non-\"show\" request even with an anime-style release", async () => {
     const { app, queue } = createTestApp();
     const job = createRunningJob(queue, { title: "Some Anime Movie", mediaType: "movie" });

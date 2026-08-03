@@ -38,7 +38,17 @@ export async function identifyMedia(ctx: PipelineContext): Promise<void> {
   // TMDB (what the Discord bot's request search uses) has no "anime" category, so anime
   // requests always arrive tagged "show" — let the heuristic upgrade that once the actual
   // release is visible. Any other explicit request type (movie/anime/music) stays authoritative.
-  const mediaType = requested === "show" && guessed === "anime" ? "anime" : (requested ?? guessed);
+  const upgradedToAnime = requested === "show" && guessed === "anime";
+  const mediaType = upgradedToAnime ? "anime" : (requested ?? guessed);
+
+  if (upgradedToAnime && ctx.job.request.metadataId) {
+    // metadataId (if the caller supplied one) was resolved against TMDB's show catalog --
+    // meaningless as an ID in AniList's, which is what fetchMetadata.ts will now look this job
+    // up against. Drop it so that stage falls back to an AniList title/year search instead of a
+    // guaranteed-wrong direct ID lookup (fetchMetadata runs immediately next, no gate in
+    // between, so this in-memory change is all that's needed).
+    ctx.job.request = { ...ctx.job.request, metadataId: undefined };
+  }
 
   ctx.job.mediaType = mediaType;
   ctx.app.queue.setMediaType(ctx.job.id, mediaType);
