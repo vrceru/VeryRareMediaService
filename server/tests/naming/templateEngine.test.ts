@@ -9,9 +9,30 @@ describe("renderTemplate", () => {
     expect(result).toBe("Inception (2010)");
   });
 
-  it("replaces unknown or missing tokens with an empty string", () => {
+  it("trims a dangling separator left by an empty token at the end of a segment", () => {
     const result = renderTemplate("{title} - {missing}", { title: "X" });
-    expect(result).toBe("X - ");
+    expect(result).toBe("X");
+  });
+
+  it("drops a blank episodeTitle segment before the extension", () => {
+    const result = renderTemplate("{title}/Season {seasonPadded}/{title} - S{seasonPadded}E{episodePadded} - {episodeTitle}{extension}", {
+      title: "Show",
+      seasonPadded: "02",
+      episodePadded: "01",
+      extension: ".mkv",
+    });
+    expect(result).toBe("Show/Season 02/Show - S02E01.mkv");
+  });
+
+  it("keeps a real episodeTitle intact", () => {
+    const result = renderTemplate("{title} - S{seasonPadded}E{episodePadded} - {episodeTitle}{extension}", {
+      title: "Show",
+      seasonPadded: "02",
+      episodePadded: "01",
+      episodeTitle: "Pilot",
+      extension: ".mkv",
+    });
+    expect(result).toBe("Show - S02E01 - Pilot.mkv");
   });
 });
 

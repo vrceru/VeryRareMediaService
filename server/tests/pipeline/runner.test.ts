@@ -181,10 +181,8 @@ describe("runPipeline (integration)", () => {
       const finalJob = queue.getJob(job.id)!;
       expect(finalJob.status).toBe("completed");
 
-      // The default show template includes {episodeTitle}, which the fake metadata provider
-      // never sets -- hence the trailing " - " before the extension.
       for (let i = 1; i <= 3; i++) {
-        const expected = join(libraryDirs.show, "Show Name", "Season 01", `Show Name - S01E0${i} - .mkv`);
+        const expected = join(libraryDirs.show, "Show Name", "Season 01", `Show Name - S01E0${i}.mkv`);
         await expect(access(expected)).resolves.toBeUndefined();
       }
     },
