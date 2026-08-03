@@ -20,6 +20,7 @@ function rowToJob(row: JobRow): Job {
     releaseCandidates: row.release_candidates ? (JSON.parse(row.release_candidates) as ReleaseCandidate[]) : null,
     metadata: row.metadata ? (JSON.parse(row.metadata) as MediaMetadata) : null,
     primaryMediaFile: row.primary_media_file,
+    mediaFiles: row.media_files ? (JSON.parse(row.media_files) as string[]) : null,
     downloadProviderId: row.download_provider_id,
     downloadRef: row.download_ref,
     progress: row.progress,
@@ -196,6 +197,15 @@ export class QueueService {
     this.db
       .prepare(`UPDATE jobs SET primary_media_file = ?, updated_at = ? WHERE id = ?`)
       .run(filePath, Date.now(), id);
+  }
+
+  /** Persists every valid media file (not just the primary one), so a batch (season-pack)
+   * release survives the final-approval gate — hydrateState() in runner.ts restores this on
+   * resume the same way it restores primaryMediaFile. */
+  setMediaFiles(id: string, files: string[]): void {
+    this.db
+      .prepare(`UPDATE jobs SET media_files = ?, updated_at = ? WHERE id = ?`)
+      .run(JSON.stringify(files), Date.now(), id);
   }
 
   setMediaType(id: string, mediaType: string): void {

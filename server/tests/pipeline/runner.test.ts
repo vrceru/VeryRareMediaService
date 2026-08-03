@@ -124,6 +124,72 @@ describe("runPipeline (integration)", () => {
     },
   );
 
+  it(
+    "carries every file of a batch (season-pack) release through the final-approval gate, not just the primary one",
+    async () => {
+      // Regression test: mediaFiles previously lived only in in-memory pipeline state, so a
+      // job that paused at the final-approval gate and resumed later (as every real job does)
+      // lost every file except the one primaryMediaFile already persisted — organizing just
+      // one episode out of a whole season pack.
+      const downloadProvider = new FakeDownloadProvider();
+      downloadProvider.searchResults = [
+        {
+          id: "magnet:?xt=urn:btih:abc",
+          title: "Show.Name.S01.1080p.WEB-DL-GROUP",
+          sizeBytes: 63 * 1024 * 1024,
+          seeders: 50,
+          qualityScore: 0.8,
+          providerId: downloadProvider.id,
+        },
+      ];
+
+      const metadataProvider = new FakeMetadataProvider("show");
+      metadataProvider.searchResults = [{ externalId: "1", title: "Show Name" }];
+      metadataProvider.details = { provider: "fake-show", externalId: "1", title: "Show Name", genres: [] };
+
+      const { app, queue } = createTestApp({
+        downloadProvider,
+        metadataProvider,
+        downloadTempDir,
+        libraryDirs,
+      });
+
+      const job = createRunningJob(queue, { title: "Show Name", mediaType: "show" });
+
+      const tempDir = jobTempDir(downloadTempDir, job.id);
+      await mkdir(tempDir, { recursive: true });
+      const episodeFiles = ["Show.Name.S01E01.mkv", "Show.Name.S01E02.mkv", "Show.Name.S01E03.mkv"];
+      for (const f of episodeFiles) await writeFile(join(tempDir, f), Buffer.alloc(21 * 1024 * 1024));
+      downloadProvider.statusSequence = [
+        { state: "completed", progress: 1, downloadSpeedBytesPerSec: 0, savePath: tempDir },
+      ];
+
+      await runPipeline(app, job); // Gate A
+      approveRelease(app, queue.getJob(job.id)!);
+
+      await runPipeline(app, queue.getJob(job.id)!); // Gate B
+      const beforeFinal = queue.getJob(job.id)!;
+      expect(beforeFinal.status).toBe("awaiting_final_approval");
+      expect(beforeFinal.mediaFiles).toHaveLength(3);
+
+      approveFinal(app, beforeFinal);
+      // Simulate a real resume: re-fetch the job from the DB rather than reusing the in-memory
+      // object, so this test can't accidentally pass off of in-process state runPipeline never
+      // actually persisted.
+      await runPipeline(app, queue.getJob(job.id)!);
+
+      const finalJob = queue.getJob(job.id)!;
+      expect(finalJob.status).toBe("completed");
+
+      // The default show template includes {episodeTitle}, which the fake metadata provider
+      // never sets -- hence the trailing " - " before the extension.
+      for (let i = 1; i <= 3; i++) {
+        const expected = join(libraryDirs.show, "Show Name", "Season 01", `Show Name - S01E0${i} - .mkv`);
+        await expect(access(expected)).resolves.toBeUndefined();
+      }
+    },
+  );
+
   it("stops at the failing stage and dispatches a processing.failed notification", async () => {
     // No download provider configured at all — fails at searchProviders.
     const { app, queue } = createTestApp({ downloadTempDir, libraryDirs });

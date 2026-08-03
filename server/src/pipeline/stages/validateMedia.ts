@@ -22,5 +22,6 @@ export async function validateMedia(ctx: PipelineContext): Promise<void> {
   ctx.state.mediaFiles = valid;
   ctx.state.primaryMediaFile = sizes[0]!.f;
   ctx.app.queue.setPrimaryMediaFile(ctx.job.id, sizes[0]!.f);
+  ctx.app.queue.setMediaFiles(ctx.job.id, valid);
   ctx.app.queue.updateStage(ctx.job.id, STAGE, `${valid.length} valid file(s), primary: ${sizes[0]!.f}`);
 }

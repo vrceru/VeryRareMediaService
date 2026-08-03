@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   release_candidates TEXT,
   metadata TEXT,
   primary_media_file TEXT,
+  media_files TEXT,
   download_provider_id TEXT,
   download_ref TEXT,
   progress REAL NOT NULL DEFAULT 0,
@@ -42,6 +43,19 @@ CREATE TABLE IF NOT EXISTS job_history (
 CREATE INDEX IF NOT EXISTS idx_job_history_job_id ON job_history(job_id);
 `;
 
+// Additive migrations for columns added after the jobs table's first release, since
+// "CREATE TABLE IF NOT EXISTS" above is a no-op against an already-existing table.
+const MIGRATIONS: { table: string; column: string; type: string }[] = [{ table: "jobs", column: "media_files", type: "TEXT" }];
+
+function runMigrations(db: DatabaseSync): void {
+  for (const { table, column, type } of MIGRATIONS) {
+    const existing = db.prepare(`PRAGMA table_info(${table})`).all() as unknown as { name: string }[];
+    if (!existing.some((c) => c.name === column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+  }
+}
+
 export type Db = DatabaseSync;
 
 export function createDb(databasePath: string): Db {
@@ -52,5 +66,6 @@ export function createDb(databasePath: string): Db {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(BOOTSTRAP_SQL);
+  runMigrations(db);
   return db;
 }

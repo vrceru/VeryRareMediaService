@@ -33,6 +33,9 @@ export interface Job {
   metadata: MediaMetadata | null;
   /** The file validateMedia picked, needed to resume at renameFiles after final approval. */
   primaryMediaFile: string | null;
+  /** Every valid media file validateMedia found, not just the primary one — needed to resume a
+   * batch (season-pack) release's rename/organize after the final-approval gate. */
+  mediaFiles: string[] | null;
   downloadProviderId: string | null;
   downloadRef: string | null;
   progress: number;

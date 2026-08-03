@@ -77,6 +77,9 @@ function hydrateState(job: Job): PipelineState {
   if (job.primaryMediaFile) {
     state.primaryMediaFile = job.primaryMediaFile;
   }
+  if (job.mediaFiles) {
+    state.mediaFiles = job.mediaFiles;
+  }
   return state;
 }
 
