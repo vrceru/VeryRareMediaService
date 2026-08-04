@@ -98,6 +98,7 @@ export class QbittorrentProvider implements DownloadProvider {
       progress: info.progress,
       downloadSpeedBytesPerSec: info.dlspeed,
       savePath: info.save_path || null,
+      connectedPeers: (info.num_seeds ?? 0) + (info.num_leechs ?? 0),
       ...(info.state === "error" || info.state === "missingFiles"
         ? { errorMessage: `qBittorrent reported state: ${info.state}` }
         : {}),

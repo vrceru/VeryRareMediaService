@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { download } from "../../../src/pipeline/stages/download.js";
+import { download, hasSignOfLife } from "../../../src/pipeline/stages/download.js";
 import { PipelineStageError } from "../../../src/pipeline/types.js";
 import { JobCancelledError } from "../../../src/queue/types.js";
 import { createTestApp, createRunningJob, makeContext, FakeDownloadProvider } from "../fixtures.js";
@@ -115,4 +115,26 @@ describe("download stage", () => {
     },
     15000,
   );
+});
+
+describe("hasSignOfLife", () => {
+  const base = { state: "downloading" as const, progress: 0, downloadSpeedBytesPerSec: 0, savePath: null };
+
+  it("is alive with actual progress, regardless of reported peers", () => {
+    expect(hasSignOfLife({ ...base, progress: 0.01, connectedPeers: 0 })).toBe(true);
+  });
+
+  it("is alive with connected peers even at zero progress", () => {
+    expect(hasSignOfLife({ ...base, progress: 0, connectedPeers: 1 })).toBe(true);
+  });
+
+  it("is dead at zero progress and zero connected peers", () => {
+    // The exact bug hit in production: a release advertised with 5000+ seeders by the search
+    // index but zero peers qBittorrent could actually reach.
+    expect(hasSignOfLife({ ...base, progress: 0, connectedPeers: 0 })).toBe(false);
+  });
+
+  it("assumes healthy when the provider can't report peer counts at all", () => {
+    expect(hasSignOfLife({ ...base, progress: 0, connectedPeers: undefined })).toBe(true);
+  });
 });

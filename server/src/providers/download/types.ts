@@ -32,6 +32,10 @@ export interface DownloadStatus {
   downloadSpeedBytesPerSec: number;
   savePath: string | null;
   errorMessage?: string;
+  /** Peers the client is actually connected to right now (not the search index's advertised
+   * seeder count, which can be stale or outright fake). Providers that can't report this leave
+   * it undefined; download.ts treats that as "assume healthy" rather than bailing early. */
+  connectedPeers?: number;
 }
 
 /**

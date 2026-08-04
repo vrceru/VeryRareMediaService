@@ -14,6 +14,10 @@ export interface QbTorrentInfo {
   progress: number;
   dlspeed: number;
   save_path: string;
+  /** Peers qBittorrent is actually connected to right now, not the search index's advertised
+   * (sometimes stale or fake) seeder count. */
+  num_seeds: number;
+  num_leechs: number;
 }
 
 export interface QbSearchResultItem {
