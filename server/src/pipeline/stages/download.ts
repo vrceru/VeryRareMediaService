@@ -86,6 +86,10 @@ export async function download(ctx: PipelineContext): Promise<void> {
     } else {
       noPeersSince ??= Date.now();
       if (Date.now() - noPeersSince >= NO_PEERS_TIMEOUT_MS) {
+        // Exclude it from selectRelease.ts on the retry this triggers -- otherwise a release
+        // that wins purely on an inflated fake seeder count just gets re-picked and re-fails
+        // in a loop.
+        ctx.app.queue.markReleaseDead(ctx.job.id, selectedRelease.dedupeKey ?? selectedRelease.id);
         throw new PipelineStageError(
           STAGE,
           `No peers found for "${selectedRelease.title}" after ${Math.round(NO_PEERS_TIMEOUT_MS / 1000)}s — ` +

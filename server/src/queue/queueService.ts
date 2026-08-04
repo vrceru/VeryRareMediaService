@@ -21,6 +21,7 @@ function rowToJob(row: JobRow): Job {
     metadata: row.metadata ? (JSON.parse(row.metadata) as MediaMetadata) : null,
     primaryMediaFile: row.primary_media_file,
     mediaFiles: row.media_files ? (JSON.parse(row.media_files) as string[]) : null,
+    deadReleaseIds: row.dead_release_ids ? (JSON.parse(row.dead_release_ids) as string[]) : null,
     downloadProviderId: row.download_provider_id,
     downloadRef: row.download_ref,
     progress: row.progress,
@@ -206,6 +207,17 @@ export class QueueService {
     this.db
       .prepare(`UPDATE jobs SET media_files = ?, updated_at = ? WHERE id = ?`)
       .run(JSON.stringify(files), Date.now(), id);
+  }
+
+  /** Appends a release's dedupeKey to this job's dead-release list (idempotent) so a later
+   * failJob() retry's fresh selectRelease.ts pass won't just re-pick the same proven-dead
+   * release again. */
+  markReleaseDead(id: string, dedupeKey: string): void {
+    const existing = this.getJob(id)?.deadReleaseIds ?? [];
+    if (existing.includes(dedupeKey)) return;
+    this.db
+      .prepare(`UPDATE jobs SET dead_release_ids = ?, updated_at = ? WHERE id = ?`)
+      .run(JSON.stringify([...existing, dedupeKey]), Date.now(), id);
   }
 
   setMediaType(id: string, mediaType: string): void {

@@ -16,6 +16,13 @@ export interface ReleaseCandidate {
    * see services/releaseParsing. */
   qualityScore: number;
   providerId: string;
+  /** Stable identity for this underlying release, independent of `id`/`title`. For torrents,
+   * that's the info-hash: the same swarm can appear across multiple indexers/plugin sources
+   * with different display titles and different tracker lists baked into the magnet string
+   * (so `id` and `title` both vary), but the info-hash never does. Falls back to `id` when a
+   * provider has no better identity to offer. Used to exclude a release proven dead (see
+   * download.ts's no-peers check) from being re-selected on retry. */
+  dedupeKey?: string;
 }
 
 export type DownloadState =

@@ -72,6 +72,11 @@ export class QbittorrentProvider implements DownloadProvider {
           leechers: r.nbLeechers,
           qualityScore,
           providerId: this.id,
+          // The same swarm often shows up across multiple indexer sources with a different
+          // display name and a different tracker list baked into the magnet -- the info-hash
+          // is the one thing that stays constant, so it's what identifies "this exact release"
+          // for dead-release exclusion on retry.
+          dedupeKey: hash,
         };
       })
       .filter((r): r is ReleaseCandidate => r !== undefined);

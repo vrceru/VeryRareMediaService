@@ -26,6 +26,7 @@ export interface JobRow {
   metadata: string | null;
   primary_media_file: string | null;
   media_files: string | null;
+  dead_release_ids: string | null;
   download_provider_id: string | null;
   download_ref: string | null;
   progress: number;

@@ -198,4 +198,14 @@ describe("QueueService", () => {
 
     expect(queue.getJob(job.id)?.status).toBe("cancelled");
   });
+
+  it("markReleaseDead appends dedupeKeys and is idempotent", () => {
+    const job = queue.enqueue({ title: "Movie" });
+
+    queue.markReleaseDead(job.id, "hash-a");
+    queue.markReleaseDead(job.id, "hash-b");
+    queue.markReleaseDead(job.id, "hash-a"); // duplicate, should not append again
+
+    expect(queue.getJob(job.id)?.deadReleaseIds).toEqual(["hash-a", "hash-b"]);
+  });
 });

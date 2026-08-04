@@ -16,10 +16,20 @@ export const STAGE = "select_release";
 export async function selectRelease(ctx: PipelineContext): Promise<void> {
   ctx.app.queue.updateStage(ctx.job.id, STAGE, "Selecting best release");
 
-  const candidates = ctx.state.releaseCandidates ?? [];
-  if (candidates.length === 0) {
+  const allCandidates = ctx.state.releaseCandidates ?? [];
+  if (allCandidates.length === 0) {
     throw new PipelineStageError(STAGE, "No release candidates to select from");
   }
+
+  // Skip anything download.ts already proved dead (zero real peers despite its advertised
+  // seeder count) on a previous attempt of this same job -- otherwise a retry just re-picks
+  // the same fake-seeded release and fails the same way again. Falls back to the full list if
+  // that would leave nothing, rather than dead-ending the job entirely.
+  const deadIds = new Set(ctx.job.deadReleaseIds ?? []);
+  const filtered = deadIds.size ? allCandidates.filter((c) => !deadIds.has(c.dedupeKey ?? c.id)) : allCandidates;
+  // If every candidate this search turned up was already proven dead, there's nothing better
+  // to fall back to -- try the full list again rather than dead-ending the job outright.
+  const candidates = filtered.length > 0 ? filtered : allCandidates;
 
   const ranked = candidates
     .map((candidate) => {

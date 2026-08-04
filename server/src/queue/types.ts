@@ -36,6 +36,11 @@ export interface Job {
   /** Every valid media file validateMedia found, not just the primary one — needed to resume a
    * batch (season-pack) release's rename/organize after the final-approval gate. */
   mediaFiles: string[] | null;
+  /** dedupeKeys (see ReleaseCandidate) of releases proven dead for this job — e.g. download.ts
+   * gave up after finding zero real peers despite an inflated advertised seeder count.
+   * Persists across a failJob() retry (which restarts from search_providers) so the exact same
+   * fake-seeded release doesn't just get re-selected and re-fail in a loop. */
+  deadReleaseIds: string[] | null;
   downloadProviderId: string | null;
   downloadRef: string | null;
   progress: number;

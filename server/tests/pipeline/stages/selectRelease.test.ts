@@ -58,6 +58,59 @@ describe("selectRelease stage", () => {
     expect(ctx.state.selectedRelease?.id).toBe("right");
   });
 
+  it("excludes a release already proven dead by a previous attempt of this job", async () => {
+    // Regression test: a fake-seeded release can dominate scoring on every retry unless a
+    // proven-dead one is actually excluded, not just re-ranked.
+    const provider = new FakeDownloadProvider();
+    const { app, queue } = createTestApp({ downloadProvider: provider });
+    const job = createRunningJob(queue, { title: "Movie" });
+
+    const candidates: ReleaseCandidate[] = [
+      {
+        id: "fake-seeded",
+        title: "Movie.2020.720p.BrRip-GROUP",
+        sizeBytes: 1,
+        qualityScore: 0.99,
+        providerId: provider.id,
+        dedupeKey: "hash-x",
+      },
+      { id: "real", title: "Movie.2020.1080p.BluRay-GROUP", sizeBytes: 1, qualityScore: 0.3, providerId: provider.id },
+    ];
+
+    queue.markReleaseDead(job.id, "hash-x");
+    const refreshedJob = queue.getJob(job.id)!;
+
+    const ctx = makeContext(app, refreshedJob, { releaseCandidates: candidates });
+    await selectRelease(ctx);
+
+    expect(ctx.state.selectedRelease?.id).toBe("real");
+  });
+
+  it("falls back to the full candidate list when every candidate is already dead", async () => {
+    const provider = new FakeDownloadProvider();
+    const { app, queue } = createTestApp({ downloadProvider: provider });
+    const job = createRunningJob(queue, { title: "Movie" });
+
+    const candidates: ReleaseCandidate[] = [
+      {
+        id: "only",
+        title: "Movie.2020.720p-GROUP",
+        sizeBytes: 1,
+        qualityScore: 0.5,
+        providerId: provider.id,
+        dedupeKey: "hash-only",
+      },
+    ];
+
+    queue.markReleaseDead(job.id, "hash-only");
+    const refreshedJob = queue.getJob(job.id)!;
+
+    const ctx = makeContext(app, refreshedJob, { releaseCandidates: candidates });
+    await selectRelease(ctx);
+
+    expect(ctx.state.selectedRelease?.id).toBe("only");
+  });
+
   it("persists the selected release onto the job record", async () => {
     const provider = new FakeDownloadProvider();
     const { app, queue } = createTestApp({ downloadProvider: provider });
