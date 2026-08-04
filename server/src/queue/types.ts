@@ -63,3 +63,18 @@ export interface JobListFilter {
   limit?: number;
   offset?: number;
 }
+
+/** Thrown by a long-running pipeline stage (currently just download.ts's wait loop) once it
+ * notices the job's own DB row was externally moved to "cancelled" mid-run — e.g. via
+ * POST /api/jobs/:id/cancel. cancelJob() only updates that DB row; nothing else stops an
+ * in-flight runPipeline() promise on its own, so without this a cancelled job's stage would
+ * keep running (in download.ts's case, polling for up to 6 hours) and silently hold one of
+ * JobWorker's concurrency slots forever. Callers (runner.ts, worker.ts) special-case this to
+ * skip the normal failure path (no "processing failed" notification, no failJob() retry/fail
+ * transition) since the job is already in its correct terminal state. */
+export class JobCancelledError extends Error {
+  constructor(public readonly jobId: string) {
+    super(`Job ${jobId} was cancelled`);
+    this.name = "JobCancelledError";
+  }
+}

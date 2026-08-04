@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { download } from "../../../src/pipeline/stages/download.js";
 import { PipelineStageError } from "../../../src/pipeline/types.js";
+import { JobCancelledError } from "../../../src/queue/types.js";
 import { createTestApp, createRunningJob, makeContext, FakeDownloadProvider } from "../fixtures.js";
 import type { ReleaseCandidate } from "../../../src/providers/download/types.js";
 
@@ -79,6 +80,38 @@ describe("download stage", () => {
 
       const persisted = queue.getJob(job.id)!;
       expect(persisted.progress).toBe(1);
+    },
+    15000,
+  );
+
+  it(
+    "stops promptly when the job is cancelled mid-poll, instead of running until MAX_WAIT_MS",
+    async () => {
+      // Regression test: cancelJob() only flips the DB row -- nothing used to stop this loop,
+      // so a job cancelled mid-download (e.g. its torrent got removed) would silently poll for
+      // up to 6 hours, permanently occupying one of JobWorker's concurrency slots.
+      const { app, queue } = createTestApp({ downloadTempDir: workDir });
+      const job = createRunningJob(queue, { title: "Movie" });
+
+      class CancellingProvider extends FakeDownloadProvider {
+        statusCalls = 0;
+        override async getStatus(ref: string) {
+          this.statusCalls++;
+          queue.cancelJob(job.id);
+          return super.getStatus(ref);
+        }
+      }
+      const provider = new CancellingProvider();
+      provider.statusSequence = [
+        { state: "downloading", progress: 0.1, downloadSpeedBytesPerSec: 1000, savePath: null },
+        { state: "downloading", progress: 0.2, downloadSpeedBytesPerSec: 1000, savePath: null },
+      ];
+
+      const ctx = makeContext(app, job, { selectedRelease: release, downloadProvider: provider });
+      await expect(download(ctx)).rejects.toThrow(JobCancelledError);
+      // Stopped after the first poll's cancellation was noticed at the top of the next loop
+      // iteration -- never reached a second getStatus() call.
+      expect(provider.statusCalls).toBe(1);
     },
     15000,
   );

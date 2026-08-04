@@ -1,5 +1,6 @@
 import type { AppContext } from "../appContext.js";
 import type { Job } from "../queue/types.js";
+import { JobCancelledError } from "../queue/types.js";
 import type { PipelineContext, PipelineState } from "./types.js";
 import { parseReleaseName } from "../services/releaseParsing/releaseParser.js";
 import { validateRequest, STAGE as VALIDATE_REQUEST } from "./stages/validateRequest.js";
@@ -99,6 +100,10 @@ export async function runPipeline(app: AppContext, job: Job): Promise<void> {
       }
     }
   } catch (err) {
+    // A cancellation isn't a failure -- the job is already in its correct terminal state, and
+    // JobWorker.execute() special-cases this too (skips failJob's retry/fail transition).
+    if (err instanceof JobCancelledError) throw err;
+
     const message = err instanceof Error ? err.message : String(err);
     await app.notifications.dispatch({
       type: "processing.failed",

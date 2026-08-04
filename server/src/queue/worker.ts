@@ -1,5 +1,6 @@
 import type { QueueService } from "./queueService.js";
 import type { Job } from "./types.js";
+import { JobCancelledError } from "./types.js";
 import { getLogger } from "../logging/logger.js";
 
 const log = getLogger("worker");
@@ -62,6 +63,12 @@ export class JobWorker {
     try {
       await this.runJob(job);
     } catch (err) {
+      if (err instanceof JobCancelledError) {
+        // Already in its correct terminal state -- don't run it back through failJob's
+        // retry/fail transition, which would incorrectly resurrect a cancelled job.
+        log.info({ jobId: job.id }, "job cancelled mid-run, worker slot released");
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
       log.error({ jobId: job.id, err: message }, "unhandled error running job");
       this.queue.failJob(job.id, message);

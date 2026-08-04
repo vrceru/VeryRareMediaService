@@ -1,5 +1,6 @@
 import type { PipelineContext } from "../types.js";
 import { PipelineStageError } from "../types.js";
+import { JobCancelledError } from "../../queue/types.js";
 import { ensureJobTempDir } from "../../services/cleanup/tempStorage.js";
 
 export const STAGE = "download";
@@ -42,6 +43,13 @@ export async function download(ctx: PipelineContext): Promise<void> {
 
   const deadline = Date.now() + MAX_WAIT_MS;
   while (Date.now() < deadline) {
+    // A cancelled job's DB row won't naturally stop this loop on its own -- check every poll
+    // so a mid-download cancel (POST /api/jobs/:id/cancel) frees this worker slot within one
+    // poll interval instead of running for up to MAX_WAIT_MS.
+    if (ctx.app.queue.getJob(ctx.job.id)?.status === "cancelled") {
+      throw new JobCancelledError(ctx.job.id);
+    }
+
     const status = await downloadProvider.getStatus(downloadRef);
     ctx.app.queue.updateProgress(ctx.job.id, status.progress);
 
