@@ -35,6 +35,26 @@ describe("parseReleaseName", () => {
     expect(parsed.codec).toBe("avc");
   });
 
+  it("parses a season-only batch/pack release with no episode marker at all", () => {
+    // Regression test: every other season/episode pattern requires an episode number
+    // alongside the season, so a plain "S02" batch-pack title (a very common real-world
+    // naming convention) previously came out with parsed.season entirely undefined.
+    const parsed = parseReleaseName("Show.Name.S02.1080p.WEB-DL-GROUP");
+    expect(parsed.season).toBe(2);
+    expect(parsed.episode).toBeUndefined();
+  });
+
+  it("parses a verbose 'Season N' batch release with no episode marker", () => {
+    const parsed = parseReleaseName("Show Name - Season 2 (Bluray-1080p AV1 Dual-Audio)");
+    expect(parsed.season).toBe(2);
+    expect(parsed.episode).toBeUndefined();
+  });
+
+  it("does not mistake a movie's release group for a season marker", () => {
+    const parsed = parseReleaseName("The.Matrix.1999.1080p.BluRay.x264-SPARKS");
+    expect(parsed.season).toBeUndefined();
+  });
+
   it("parses a multi-episode range", () => {
     const parsed = parseReleaseName("Show.Name.S01E01-E03.1080p.HDTV.x264-GROUP");
     expect(parsed.season).toBe(1);

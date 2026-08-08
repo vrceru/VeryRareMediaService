@@ -76,6 +76,11 @@ const MULTI_EPISODE_PATTERN = /\bS(\d{1,2})E(\d{1,3})(?:-?E(\d{1,3}))?\b/i;
 const ALT_EPISODE_PATTERN = /\b(\d{1,2})x(\d{1,3})\b/;
 const VERBOSE_EPISODE_PATTERN = /Season\s?(\d{1,2}).{0,10}?Episode\s?(\d{1,3})/i;
 const ANIME_EPISODE_PATTERN = /\s-\s(\d{1,4})(?:v\d+)?(?=\s|\[|$)/;
+// A season with no episode marker at all -- the standard convention for a full-season/batch
+// pack release (e.g. "Show.S02.1080p.WEB-DL-GROUP"), as opposed to every pattern above which
+// requires an episode number alongside the season.
+const SEASON_ONLY_PATTERN = /\bS(\d{1,2})\b/i;
+const VERBOSE_SEASON_ONLY_PATTERN = /\bSeason\s?(\d{1,2})\b/i;
 
 const YEAR_PATTERN = /\b(19\d{2}|20\d{2})\b/;
 
@@ -185,6 +190,12 @@ export function parseReleaseName(rawName: string): ParsedRelease {
         if (animeMatch) {
           episode = Number(animeMatch[1]);
           episodeMatchIndex = animeMatch.index;
+        } else {
+          const seasonOnlyMatch = SEASON_ONLY_PATTERN.exec(working) ?? VERBOSE_SEASON_ONLY_PATTERN.exec(working);
+          if (seasonOnlyMatch) {
+            season = Number(seasonOnlyMatch[1]);
+            episodeMatchIndex = seasonOnlyMatch.index;
+          }
         }
       }
     }

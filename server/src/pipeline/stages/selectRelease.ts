@@ -3,15 +3,29 @@ import { PipelineStageError } from "../types.js";
 import { parseReleaseName } from "../../services/releaseParsing/releaseParser.js";
 import { computeQualityScore } from "../../services/releaseParsing/qualityScore.js";
 import { computeRelevanceScore } from "../../services/releaseParsing/relevanceScore.js";
+import type { ParsedRelease } from "../../services/releaseParsing/types.js";
 
 export const STAGE = "select_release";
+
+// Applied on top of the blended score below for a show/anime candidate that reads as a full
+// season -- a season is named but no single episode is (or it's an explicit episode range, e.g.
+// "S01E01-E12"). Less than the 0.4 weight given to quality alone, so a genuinely poor-quality
+// batch still loses to a clearly better single-episode release; enough to tip a close race
+// toward the batch, since a full season pack is usually the preferred pick when one's available
+// rather than grabbing one episode at a time.
+const BATCH_RELEASE_BONUS = 0.2;
+
+function isBatchRelease(parsed: ParsedRelease): boolean {
+  return parsed.season !== undefined && (parsed.episode === undefined || parsed.episodeEnd !== undefined);
+}
 
 /**
  * Ranks candidates by blending three signals: the provider's own heuristic (e.g. seeder
  * count), the technical quality parsed from the release name (resolution/source/codec), and
- * how well the parsed name matches the request's explicit year/season/episode. Parsing every
- * candidate's title also gives later stages (identify_media, fetch_metadata) a head start —
- * the winning ParsedRelease is stashed in pipeline state.
+ * how well the parsed name matches the request's explicit year/season/episode -- plus a bonus
+ * for a show/anime candidate that looks like a full season pack. Parsing every candidate's
+ * title also gives later stages (identify_media, fetch_metadata) a head start — the winning
+ * ParsedRelease is stashed in pipeline state.
  */
 export async function selectRelease(ctx: PipelineContext): Promise<void> {
   ctx.app.queue.updateStage(ctx.job.id, STAGE, "Selecting best release");
@@ -31,12 +45,16 @@ export async function selectRelease(ctx: PipelineContext): Promise<void> {
   // to fall back to -- try the full list again rather than dead-ending the job outright.
   const candidates = filtered.length > 0 ? filtered : allCandidates;
 
+  const requestMediaType = ctx.job.request.mediaType;
+  const episodic = requestMediaType === "show" || requestMediaType === "anime";
+
   const ranked = candidates
     .map((candidate) => {
       const parsed = parseReleaseName(candidate.title);
       const qualityScore = computeQualityScore(parsed);
       const relevanceScore = computeRelevanceScore(parsed, ctx.job.request);
-      const combinedScore = candidate.qualityScore * 0.4 + qualityScore * 0.4 + relevanceScore * 0.2;
+      const batchBonus = episodic && isBatchRelease(parsed) ? BATCH_RELEASE_BONUS : 0;
+      const combinedScore = candidate.qualityScore * 0.4 + qualityScore * 0.4 + relevanceScore * 0.2 + batchBonus;
       return { candidate, parsed, combinedScore };
     })
     .sort((a, b) => b.combinedScore - a.combinedScore);

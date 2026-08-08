@@ -58,6 +58,38 @@ describe("selectRelease stage", () => {
     expect(ctx.state.selectedRelease?.id).toBe("right");
   });
 
+  it("prefers a full-season batch release over a similarly-scored single episode for a show request", async () => {
+    const provider = new FakeDownloadProvider();
+    const { app, queue } = createTestApp({ downloadProvider: provider });
+    const job = createRunningJob(queue, { title: "Show", mediaType: "show" });
+
+    const candidates: ReleaseCandidate[] = [
+      { id: "single", title: "Show.S02E05.1080p.WEB-DL-GROUP", sizeBytes: 1, qualityScore: 0.6, providerId: provider.id },
+      { id: "batch", title: "Show.S02.1080p.WEB-DL-GROUP", sizeBytes: 1, qualityScore: 0.6, providerId: provider.id },
+    ];
+
+    const ctx = makeContext(app, job, { releaseCandidates: candidates });
+    await selectRelease(ctx);
+
+    expect(ctx.state.selectedRelease?.id).toBe("batch");
+  });
+
+  it("treats an explicit episode range (S01E01-E12) as a batch release too", async () => {
+    const provider = new FakeDownloadProvider();
+    const { app, queue } = createTestApp({ downloadProvider: provider });
+    const job = createRunningJob(queue, { title: "Show", mediaType: "anime" });
+
+    const candidates: ReleaseCandidate[] = [
+      { id: "single", title: "Show.S01E05.1080p-GROUP", sizeBytes: 1, qualityScore: 0.6, providerId: provider.id },
+      { id: "range", title: "Show.S01E01-E12.1080p-GROUP", sizeBytes: 1, qualityScore: 0.6, providerId: provider.id },
+    ];
+
+    const ctx = makeContext(app, job, { releaseCandidates: candidates });
+    await selectRelease(ctx);
+
+    expect(ctx.state.selectedRelease?.id).toBe("range");
+  });
+
   it("excludes a release already proven dead by a previous attempt of this job", async () => {
     // Regression test: a fake-seeded release can dominate scoring on every retry unless a
     // proven-dead one is actually excluded, not just re-ranked.
