@@ -21,7 +21,7 @@ is unset, all routes are open — a warning is logged at every boot in that case
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | `{ status, uptimeSeconds, integrations: { qbittorrent, sabnzbd, newznab, directDownload, tmdb, jellyfin, discord, virusScan, apiAuth } }` |
+| GET | `/api/health` | `{ status, uptimeSeconds, integrations: { qbittorrent, sabnzbd, newznab, directDownload, youtube, tmdb, jellyfin, discord, virusScan, apiAuth } }` |
 | GET | `/api/config` | Read-only, secret-free view of the active configuration |
 
 ## Queue
@@ -56,6 +56,17 @@ or `awaiting_final_approval` between pipeline stages, waiting for one of these.
 | GET | `/api/approvals/final` | Jobs awaiting Gate B, each with matched metadata, the primary file path, and a live storage check (`freeBytes`/`requiredBytes`/`hasEnoughSpace`) |
 | POST | `/api/jobs/:id/approve-final` | No body |
 | POST | `/api/jobs/:id/deny-final` | Cancel + clean up |
+
+## Ingest (YouTube playlist → music)
+
+See [youtube-ingestion.md](youtube-ingestion.md) for the full mechanism. `400` if
+`YOUTUBE_INGESTION_ENABLED` isn't set or the URL isn't a supported YouTube URL.
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/ingest/youtube` | Body `{ url, mediaType?: "music" }`. Resolves the playlist and enqueues one job per new track (existing tracks are skipped). Returns `201` + `{ runId, discovered, enqueued, skippedDuplicate, failed, jobIds, failures, unaccountedFor }`. |
+| GET | `/api/ingest/youtube/:runId` | The stored run plus `liveCounts` — current status breakdown of that run's jobs |
+| GET | `/api/ingest/youtube/verify?url=` | Re-resolves the playlist live and diffs it against what's actually recorded as ingested — `{ liveTrackCount, ingestedCount, missingTracks, removedFromPlaylist }` |
 
 ## History
 

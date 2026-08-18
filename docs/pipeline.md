@@ -22,7 +22,7 @@ across gates actually works, and how it's kept separate from ordinary failure re
 | 9 | Extract archives | `stages/extractArchive.ts` | Extracts `.zip` and `.rar` releases (more formats: extend `services/archive`) |
 | 10 | Validate media | `stages/validateMedia.ts` | Filters to real media files, picks the primary one |
 | 11 | Identify media | `stages/identifyMedia.ts` | Uses the request's `mediaType`, or heuristics (informed by the parsed release) if absent |
-| 12 | Fetch metadata | `stages/fetchMetadata.ts` | Queries the matching `MetadataProvider`, using the request's year/season/episode or the parsed release's as a fallback |
+| 12 | Fetch metadata | `stages/fetchMetadata.ts` | Queries the matching `MetadataProvider`, using the request's year/season/episode or the parsed release's as a fallback. For `music` jobs, candidates are confidence-scored against the parsed source title instead of taking the first result (see [youtube-ingestion.md](youtube-ingestion.md#metadata-matching)) |
 | 13 | **Gate B: await final approval** | `stages/awaitFinalApproval.ts` | Pauses the job (`awaiting_final_approval`) with the matched metadata + file, for an admin to approve/deny via `/api/approvals/final` and friends |
 | 14 | Rename files | `stages/renameFiles.ts` | Computes the sanitized destination path from the naming template |
 | 15 | Organize library | `stages/organizeLibrary.ts` | Dedupes against the library, hard-checks free disk space, then moves the file |

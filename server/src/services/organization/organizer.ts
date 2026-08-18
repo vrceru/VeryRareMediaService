@@ -55,21 +55,33 @@ async function resolveUniquePath(candidatePath: string, reserved: Set<string>): 
   }
 }
 
+// Matches a leading track number in a music filename ("01 - Song.flac", "01. Song.mp3",
+// "1_Song.wav") -- the standard convention nearly every ripped/downloaded album already uses.
+const LEADING_TRACK_NUMBER_PATTERN = /^(\d{1,3})[\s._-]+/;
+
 /**
- * A batch release (e.g. a full anime/show season pack) has one file per episode, but
- * fetchMetadata.ts only ever looks up series-level metadata (there's no single "the" episode to
- * ask a metadata provider about ahead of time). Parse each file's own name for its season/
- * episode — the same heuristics selectRelease already applies to the overall release title —
- * and let that override the series-level placeholder. Season falls back to 1 when nothing on
- * either side names one (typical for absolute-numbered anime); episode is left alone if it
- * can't be determined, rather than guessed.
+ * A batch release (e.g. a full anime/show season pack, or a multi-track album) has one file per
+ * episode/track, but fetchMetadata.ts only ever looks up release-level metadata (there's no
+ * single "the" episode/track to ask a metadata provider about ahead of time). Parse each file's
+ * own name for its season/episode or track number and let that override the release-level
+ * placeholder -- otherwise every file in the batch renders to the identical destination name
+ * and only survives via the "(1)", "(2)"... collision suffix instead of real numbering.
+ * Season falls back to 1 when nothing on either side names one (typical for absolute-numbered
+ * anime); episode/track are left alone if they can't be determined, rather than guessed.
  */
 function metadataForFile(metadata: MediaMetadata, mediaType: MediaType, sourceFilePath: string): MediaMetadata {
-  if (mediaType !== "show" && mediaType !== "anime") return metadata;
-  const parsed = parseReleaseName(basename(sourceFilePath));
-  const season = parsed.season ?? metadata.season ?? 1;
-  const episode = parsed.episode ?? metadata.episode;
-  return { ...metadata, season, episode };
+  if (mediaType === "show" || mediaType === "anime") {
+    const parsed = parseReleaseName(basename(sourceFilePath));
+    const season = parsed.season ?? metadata.season ?? 1;
+    const episode = parsed.episode ?? metadata.episode;
+    return { ...metadata, season, episode };
+  }
+  if (mediaType === "music") {
+    const match = LEADING_TRACK_NUMBER_PATTERN.exec(basename(sourceFilePath));
+    const trackNumber = match ? Number(match[1]) : metadata.trackNumber;
+    return { ...metadata, trackNumber };
+  }
+  return metadata;
 }
 
 /**

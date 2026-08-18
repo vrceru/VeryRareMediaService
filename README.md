@@ -35,6 +35,7 @@ set its environment variables.
 - [Providers](docs/providers.md) — download and metadata provider interfaces, what's implemented
 - [Release name parsing](docs/release-parsing.md) — how release names are turned into structured title/year/season/episode/quality data
 - [Admin approval workflow](docs/approvals.md) — the two optional pause points for human review before download and before a file goes live
+- [YouTube playlist ingestion](docs/youtube-ingestion.md) — optional playlist → music job ingestion, with confidence-scored metadata matching and playlist verification
 - [API](docs/api.md) — REST endpoint reference
 
 ## Status

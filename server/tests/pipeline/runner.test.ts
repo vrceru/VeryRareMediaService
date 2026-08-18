@@ -6,6 +6,18 @@ import { runPipeline } from "../../src/pipeline/runner.js";
 import { approveRelease, approveFinal } from "../../src/pipeline/approvals.js";
 import { jobTempDir } from "../../src/services/cleanup/tempStorage.js";
 import { createTestApp, createRunningJob, FakeDownloadProvider, FakeMetadataProvider } from "./fixtures.js";
+import type { ScanResult, VirusScanner } from "../../src/services/virusscan/types.js";
+
+class RecordingScanner implements VirusScanner {
+  scannedFiles: string[] = [];
+  isEnabled(): boolean {
+    return true;
+  }
+  async scanFile(filePath: string): Promise<ScanResult> {
+    this.scannedFiles.push(filePath);
+    return { clean: true };
+  }
+}
 
 describe("runPipeline (integration)", () => {
   let workDir: string;
@@ -185,6 +197,79 @@ describe("runPipeline (integration)", () => {
         const expected = join(libraryDirs.show, "Show Name", "Season 01", `Show Name - S01E0${i}.mkv`);
         await expect(access(expected)).resolves.toBeUndefined();
       }
+    },
+  );
+
+  it(
+    "a YouTube-sourced job goes through virus scan and both approval gates like any other job — nothing is bypassed",
+    async () => {
+      const youtubeProvider = new FakeDownloadProvider("youtube");
+      const videoUrl = "https://www.youtube.com/watch?v=v1";
+      youtubeProvider.searchResults = [
+        {
+          id: videoUrl,
+          title: "Some Artist - Some Song (Official Audio)",
+          sizeBytes: 3 * 1024 * 1024,
+          qualityScore: 0.5,
+          providerId: "youtube",
+          dedupeKey: "v1",
+        },
+      ];
+
+      const metadataProvider = new FakeMetadataProvider("music");
+      metadataProvider.searchResults = [{ externalId: "1", title: "Some Song", artist: "Some Artist" }];
+      metadataProvider.details = {
+        provider: "fake-music",
+        externalId: "1",
+        title: "Some Song",
+        artist: "Some Artist",
+        album: "Some Album",
+        genres: [],
+      };
+
+      const scanner = new RecordingScanner();
+      const { app, queue } = createTestApp({
+        downloadProvider: youtubeProvider,
+        metadataProvider,
+        downloadTempDir,
+        libraryDirs,
+        virusScanner: scanner,
+      });
+
+      const job = createRunningJob(queue, {
+        title: "Some Artist - Some Song (Official Audio)",
+        mediaType: "music",
+        searchQuery: videoUrl,
+        preferredProviderId: "youtube",
+      });
+
+      const tempDir = jobTempDir(downloadTempDir, job.id);
+      await mkdir(tempDir, { recursive: true });
+      await writeFile(join(tempDir, "v1.m4a"), Buffer.alloc(3 * 1024 * 1024));
+      youtubeProvider.statusSequence = [
+        { state: "completed", progress: 1, downloadSpeedBytesPerSec: 0, savePath: tempDir },
+      ];
+
+      await runPipeline(app, job);
+      expect(queue.getJob(job.id)?.status).toBe("awaiting_release_approval");
+      approveRelease(app, queue.getJob(job.id)!);
+
+      await runPipeline(app, queue.getJob(job.id)!);
+      const beforeFinal = queue.getJob(job.id)!;
+      expect(beforeFinal.status).toBe("awaiting_final_approval");
+      // Proves virus scanning actually ran against the downloaded file rather than being
+      // skipped for this provider.
+      expect(scanner.scannedFiles).toHaveLength(1);
+      expect(scanner.scannedFiles[0]).toContain("v1.m4a");
+      // Proves the confidence-scored music metadata match ran and picked the right candidate.
+      expect(beforeFinal.metadata?.artist).toBe("Some Artist");
+      expect(beforeFinal.metadata?.matchConfidence).toBeGreaterThanOrEqual(60);
+
+      approveFinal(app, beforeFinal);
+      await runPipeline(app, queue.getJob(job.id)!);
+
+      const finalJob = queue.getJob(job.id)!;
+      expect(finalJob.status).toBe("completed");
     },
   );
 

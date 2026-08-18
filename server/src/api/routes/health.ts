@@ -11,6 +11,7 @@ export function registerHealthRoutes(app: FastifyInstance, ctx: AppContext): voi
         sabnzbd: ctx.downloadProviders.get("sabnzbd")?.isConfigured() ?? false,
         newznab: ctx.config.newznab !== undefined,
         directDownload: ctx.downloadProviders.get("direct-download")?.isConfigured() ?? false,
+        youtube: ctx.downloadProviders.get("youtube")?.isConfigured() ?? false,
         tmdb: ctx.config.tmdb !== undefined,
         jellyfin: ctx.jellyfin !== undefined,
         discord: ctx.config.discord !== undefined,

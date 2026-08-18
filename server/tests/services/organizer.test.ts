@@ -185,6 +185,60 @@ describe("computeDestinationPaths (batch/season-pack releases)", () => {
     expect(results[0]!.destination).not.toBe(results[1]!.destination);
   });
 
+  it("parses a per-file track number from each filename in a multi-track album", async () => {
+    const dir = join(workDir, "Artist - Album [FLAC]");
+    await mkdir(dir, { recursive: true });
+    const files = ["01 - First Song.flac", "02. Second Song.flac", "10_Tenth Song.flac"];
+    for (const f of files) await writeFile(join(dir, f), "fake audio");
+
+    const metadata: MediaMetadata = {
+      provider: "musicbrainz",
+      externalId: "1",
+      title: "Album",
+      album: "Album",
+      artist: "Artist",
+      year: 2020,
+      genres: [],
+    };
+    const results = await computeDestinationPaths({
+      sourceFilePaths: files.map((f) => join(dir, f)),
+      mediaType: "music",
+      metadata,
+      namingTemplates,
+      libraryDirs,
+    });
+
+    expect(results).toHaveLength(3);
+    expect(results[0]!.destination).toContain(join("Artist", "Album (2020)", "01 - Album.flac"));
+    expect(results[1]!.destination).toContain(join("Artist", "Album (2020)", "02 - Album.flac"));
+    expect(results[2]!.destination).toContain(join("Artist", "Album (2020)", "10 - Album.flac"));
+  });
+
+  it("never collides two untagged tracks onto the same destination", async () => {
+    const dir = join(workDir, "src");
+    await mkdir(dir, { recursive: true });
+    const files = ["trackA.flac", "trackB.flac"];
+    for (const f of files) await writeFile(join(dir, f), "fake audio");
+
+    const metadata: MediaMetadata = {
+      provider: "musicbrainz",
+      externalId: "1",
+      title: "Album",
+      album: "Album",
+      artist: "Artist",
+      genres: [],
+    };
+    const results = await computeDestinationPaths({
+      sourceFilePaths: files.map((f) => join(dir, f)),
+      mediaType: "music",
+      metadata,
+      namingTemplates,
+      libraryDirs,
+    });
+
+    expect(results[0]!.destination).not.toBe(results[1]!.destination);
+  });
+
   it("leaves movie naming untouched by the per-file episode logic", async () => {
     const source = join(workDir, "Movie.Title.2020.mkv");
     await writeFile(source, "fake video");

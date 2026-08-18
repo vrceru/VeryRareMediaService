@@ -6,6 +6,10 @@ export interface MetadataSearchResult {
   year?: number;
   overview?: string;
   posterUrl?: string;
+  /** Music only — populated by MusicBrainzProvider so callers can score a match without an
+   * extra getDetails() round-trip per candidate. */
+  artist?: string;
+  durationSeconds?: number;
 }
 
 export interface MediaMetadata {
@@ -26,6 +30,10 @@ export interface MediaMetadata {
   artist?: string;
   album?: string;
   trackNumber?: number;
+  /** 0-100, only set by the music confidence-matching path in fetchMetadata.ts (see
+   * services/musicMatching) — how sure the system is this is the right match, surfaced on the
+   * final-approval gate so an admin can see an uncertain match before it goes live. */
+  matchConfidence?: number;
 }
 
 export interface MetadataLookupOptions {

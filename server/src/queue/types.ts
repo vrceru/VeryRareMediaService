@@ -16,6 +16,15 @@ export interface MediaRequest {
    * whenever the caller already resolved an exact match (e.g. a Discord bot's own TMDB search
    * UI), so VRMS's own metadata lookup can't land on a different same-titled entry. */
   metadataId?: string;
+  /** When set, searchProviders.ts queries only this one download provider instead of fanning
+   * out to every configured one. Needed when the caller already knows the exact source (e.g.
+   * the YouTube playlist orchestrator enqueuing one job per track, each with its own video URL
+   * already known) — searching other providers too would be wrong or wasteful. */
+  preferredProviderId?: string;
+  /** Source duration, when known (e.g. the YouTube playlist orchestrator has it from yt-dlp's
+   * playlist listing) — used by music metadata confidence scoring (services/musicMatching) as
+   * a corroborating signal alongside title/artist similarity. */
+  durationSeconds?: number;
 }
 
 export interface Job {

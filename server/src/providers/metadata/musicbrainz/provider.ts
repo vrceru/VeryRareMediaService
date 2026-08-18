@@ -24,6 +24,7 @@ export class MusicBrainzProvider implements MetadataProvider {
       title: r.title,
       ...(r.date ? { year: Number(r.date.slice(0, 4)) } : {}),
       posterUrl: MusicBrainzClient.coverArtUrl(r.id),
+      ...(artistName(r) ? { artist: artistName(r)! } : {}),
     }));
   }
 

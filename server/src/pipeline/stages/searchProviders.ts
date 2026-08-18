@@ -6,7 +6,20 @@ export const STAGE = "search_providers";
 export async function searchProviders(ctx: PipelineContext): Promise<void> {
   ctx.app.queue.updateStage(ctx.job.id, STAGE, "Searching configured download providers");
 
-  const configured = ctx.app.downloadProviders.listConfigured();
+  const preferredProviderId = ctx.job.request.preferredProviderId;
+  let configured = ctx.app.downloadProviders.listConfigured();
+
+  if (preferredProviderId) {
+    const preferred = ctx.app.downloadProviders.get(preferredProviderId);
+    if (!preferred || !preferred.isConfigured()) {
+      throw new PipelineStageError(
+        STAGE,
+        `Requested provider "${preferredProviderId}" is not configured`,
+      );
+    }
+    configured = [preferred];
+  }
+
   if (configured.length === 0) {
     throw new PipelineStageError(STAGE, "No download providers are configured");
   }

@@ -34,6 +34,8 @@ export interface AppConfig {
     anime: string;
     music: string;
   };
+  youtube?: { binaryPath: string; audioFormat: string; maxConcurrentDownloads: number };
+  metadataConfidence: { strong: number; good: number; uncertain: number };
 }
 
 export class ConfigError extends Error {}
@@ -77,6 +79,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
+  const youtube = e.YOUTUBE_INGESTION_ENABLED
+    ? {
+        binaryPath: e.YTDLP_PATH,
+        audioFormat: e.YOUTUBE_AUDIO_FORMAT,
+        maxConcurrentDownloads: e.YOUTUBE_MAX_CONCURRENT_DOWNLOADS,
+      }
+    : undefined;
+
   return {
     server: { port: e.PORT, host: e.HOST, nodeEnv: e.NODE_ENV, ...(e.API_KEY ? { apiKey: e.API_KEY } : {}) },
     logging: { level: e.LOG_LEVEL, pretty: e.NODE_ENV !== "production" },
@@ -102,6 +112,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ...(tmdb ? { tmdb } : {}),
     ...(jellyfin ? { jellyfin } : {}),
     ...(discord ? { discord } : {}),
+    ...(youtube ? { youtube } : {}),
     webhookUrls,
     virusScan: {
       enabled: e.VIRUS_SCAN_ENABLED,
@@ -113,6 +124,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       show: e.NAMING_TEMPLATE_SHOW,
       anime: e.NAMING_TEMPLATE_ANIME,
       music: e.NAMING_TEMPLATE_MUSIC,
+    },
+    metadataConfidence: {
+      strong: e.METADATA_CONFIDENCE_STRONG,
+      good: e.METADATA_CONFIDENCE_GOOD,
+      uncertain: e.METADATA_CONFIDENCE_UNCERTAIN,
     },
   };
 }
@@ -127,6 +143,7 @@ export function describeIntegrations(config: AppConfig): string[] {
   lines.push(`Jellyfin: ${config.jellyfin ? "configured" : "not configured"}`);
   lines.push(`Discord notifications: ${config.discord ? "configured" : "not configured"}`);
   lines.push(`Virus scanning: ${config.virusScan.enabled ? "enabled" : "disabled"}`);
+  lines.push(`YouTube playlist ingestion: ${config.youtube ? "enabled" : "disabled"}`);
   lines.push(
     config.server.apiKey
       ? "API authentication: enabled"

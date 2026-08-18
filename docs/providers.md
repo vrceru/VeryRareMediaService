@@ -23,6 +23,7 @@ interface DownloadProvider {
 | `qbittorrent` | **Real** | Talks to the qBittorrent Web API: auth, plugin-based search, add-by-magnet, status polling, delete. Requires `QBITTORRENT_*` env vars. |
 | `sabnzbd` | **Real** | Talks to the SABnzbd Web API for add/status/cancel (`SABNZBD_*`). Search goes through a separate Newznab-compatible indexer client (`NEWZNAB_*`) — SABnzbd itself has no search API. `addDownload`'s `destinationDir` is accepted but ignored: SABnzbd has no per-job save-path option for URL adds, so the file lands wherever the category's completed-download folder is, and `getStatus` reports that path once history confirms completion. |
 | `direct-download` | **Real** | Streams a direct HTTP(S) URL to disk itself — no external client or credentials involved, so it's always active. See below for details. |
+| `youtube` | **Real**, opt-in | Shells out to `yt-dlp`/`ffmpeg` to download one video's audio. `search()` only recognizes a single video URL — playlist resolution is a separate step (`services/youtube/playlistIngestion.ts`). Requires `YOUTUBE_INGESTION_ENABLED=true`. See [youtube-ingestion.md](youtube-ingestion.md). |
 
 Release selection (`pipeline/stages/selectRelease.ts`) blends three signals per candidate: the
 provider's own `qualityScore` (for qBittorrent, seeders-weighted), the technical quality parsed

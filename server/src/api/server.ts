@@ -13,6 +13,7 @@ import { registerStatsRoutes } from "./routes/stats.js";
 import { registerNotificationRoutes } from "./routes/notifications.js";
 import { registerLibraryRoutes } from "./routes/library.js";
 import { registerApprovalRoutes } from "./routes/approvals.js";
+import { registerIngestRoutes } from "./routes/ingest.js";
 
 export async function buildServer(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
@@ -43,6 +44,7 @@ export async function buildServer(ctx: AppContext): Promise<FastifyInstance> {
       registerNotificationRoutes(privateApi, ctx);
       registerLibraryRoutes(privateApi, ctx);
       registerApprovalRoutes(privateApi, ctx);
+      registerIngestRoutes(privateApi, ctx);
     },
     { prefix: "/api" },
   );

@@ -27,7 +27,6 @@ import type { PipelineContext, PipelineState } from "../../src/pipeline/types.js
 import type { JellyfinClient } from "../../src/integrations/jellyfin/client.js";
 
 export class FakeDownloadProvider implements DownloadProvider {
-  readonly id = "fake-download";
   readonly displayName = "Fake Download";
   configured = true;
   searchResults: ReleaseCandidate[] = [];
@@ -35,6 +34,10 @@ export class FakeDownloadProvider implements DownloadProvider {
   addedRefs: string[] = [];
   cancelledRefs: string[] = [];
   private statusIndex = 0;
+
+  /** Overridable so a test can stand in for a specific real provider (e.g. "youtube") when it
+   * needs preferredProviderId-based routing to pick this fake up. */
+  constructor(readonly id: string = "fake-download") {}
 
   isConfigured(): boolean {
     return this.configured;

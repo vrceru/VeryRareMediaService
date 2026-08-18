@@ -42,6 +42,32 @@ CREATE TABLE IF NOT EXISTS job_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_job_history_job_id ON job_history(job_id);
+
+-- Pre-download dedup + playlist-sync: lets re-processing the same playlist skip tracks already
+-- ingested, and only enqueue newly-added ones. See services/youtube/ingestionTracker.ts.
+CREATE TABLE IF NOT EXISTS youtube_ingested_tracks (
+  video_id TEXT PRIMARY KEY,
+  playlist_id TEXT,
+  job_id TEXT NOT NULL,
+  ingested_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_youtube_ingested_tracks_playlist ON youtube_ingested_tracks(playlist_id);
+
+-- One row per playlist-ingestion API call, for the discovered/enqueued/skipped/failed summary.
+-- See services/youtube/playlistRuns.ts.
+CREATE TABLE IF NOT EXISTS youtube_playlist_runs (
+  id TEXT PRIMARY KEY,
+  playlist_url TEXT NOT NULL,
+  playlist_title TEXT,
+  discovered INTEGER NOT NULL DEFAULT 0,
+  enqueued INTEGER NOT NULL DEFAULT 0,
+  skipped_duplicate INTEGER NOT NULL DEFAULT 0,
+  failed INTEGER NOT NULL DEFAULT 0,
+  job_ids TEXT NOT NULL DEFAULT '[]',
+  started_at INTEGER NOT NULL,
+  finished_at INTEGER
+);
 `;
 
 // Additive migrations for columns added after the jobs table's first release, since

@@ -15,6 +15,7 @@ export function registerConfigRoutes(app: FastifyInstance, ctx: AppContext): voi
         qbittorrent: config.qbittorrent ? { url: config.qbittorrent.url, configured: true } : { configured: false },
         sabnzbd: config.sabnzbd ? { url: config.sabnzbd.url, configured: true } : { configured: false },
         newznab: config.newznab ? { url: config.newznab.url, configured: true } : { configured: false },
+        youtube: { configured: config.youtube !== undefined },
         tmdb: { configured: config.tmdb !== undefined },
         jellyfin: config.jellyfin ? { url: config.jellyfin.url, configured: true } : { configured: false },
         discord: { configured: config.discord !== undefined },

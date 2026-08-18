@@ -3,6 +3,7 @@ import type { DownloadProvider } from "./types.js";
 import { QbittorrentProvider } from "./qbittorrent/provider.js";
 import { SabnzbdProvider } from "./sabnzbd/provider.js";
 import { DirectDownloadProvider } from "./directDownload/provider.js";
+import { YoutubeProvider } from "./youtube/provider.js";
 
 export class DownloadProviderRegistry {
   private readonly providers = new Map<string, DownloadProvider>();
@@ -11,6 +12,7 @@ export class DownloadProviderRegistry {
     this.register(new QbittorrentProvider(config.qbittorrent));
     this.register(new SabnzbdProvider(config.sabnzbd, config.newznab));
     this.register(new DirectDownloadProvider());
+    this.register(new YoutubeProvider(config.youtube));
   }
 
   private register(provider: DownloadProvider): void {

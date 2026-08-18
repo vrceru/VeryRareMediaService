@@ -74,6 +74,19 @@ export const envSchema = z.object({
     "{title}/Season {seasonPadded}/{title} - S{seasonPadded}E{episodePadded}{extension}",
   ),
   NAMING_TEMPLATE_MUSIC: z.string().default("{artist}/{album} ({year})/{trackPadded} - {title}{extension}"),
+
+  // YouTube playlist ingestion (music). Opt-in — shells out to yt-dlp/ffmpeg, the first
+  // external-process dependency in VRMS (everything else talks HTTP or raw TCP).
+  YOUTUBE_INGESTION_ENABLED: boolFromString,
+  YTDLP_PATH: z.string().default("yt-dlp"),
+  YOUTUBE_AUDIO_FORMAT: z.string().default("best"),
+  YOUTUBE_MAX_CONCURRENT_DOWNLOADS: z.coerce.number().int().positive().default(2),
+
+  // Confidence thresholds (0-100) for music metadata matching against noisy YouTube titles —
+  // see services/musicMatching. Below UNCERTAIN, the match is rejected outright.
+  METADATA_CONFIDENCE_STRONG: z.coerce.number().min(0).max(100).default(95),
+  METADATA_CONFIDENCE_GOOD: z.coerce.number().min(0).max(100).default(80),
+  METADATA_CONFIDENCE_UNCERTAIN: z.coerce.number().min(0).max(100).default(60),
 });
 
 export type Env = z.infer<typeof envSchema>;
